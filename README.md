@@ -74,7 +74,7 @@ python app.py
 ```powershell
 # 快速打包
 build_exe.bat
-# 產物：dist\5168AUTO.exe
+# 產物：dist\5168AUTO_v0.2.x.exe（檔名含版號）
 ```
 
-上傳 Release 時請設 `GH_PUSH_EXE_ASSET_NAME=5168AUTO`，zip 內放 `5168AUTO.exe`。
+上傳 Release 時請設 `GH_PUSH_EXE_ASSET_NAME=5168AUTO`，zip 內放 `5168AUTO_v版號.exe`。

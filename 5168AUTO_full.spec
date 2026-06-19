@@ -13,7 +13,7 @@ block_cipher = None
 _spec_dir = os.path.dirname(os.path.abspath(SPEC))
 
 
-def _read_app_version() -> tuple[tuple[int, int, int, int], str]:
+def _read_app_version() -> tuple[tuple[int, int, int, int], str, str]:
     app_py = os.path.join(_spec_dir, "app.py")
     raw = "v0.0.0"
     try:
@@ -33,10 +33,12 @@ def _read_app_version() -> tuple[tuple[int, int, int, int], str]:
         nums.append(0)
     ft = tuple(nums[:4])
     vs_display = ".".join(str(x) for x in ft[:4])
-    return ft, vs_display
+    return ft, vs_display, raw
 
 
-def _write_win_version_info(path: str, filevers: tuple, vs_display: str) -> None:
+def _write_win_version_info(
+    path: str, filevers: tuple, vs_display: str, exe_filename: str
+) -> None:
     if sys.platform != "win32":
         return
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -62,7 +64,7 @@ VSVersionInfo(
         StringStruct(u'FileVersion', u'{vs_display}'),
         StringStruct(u'InternalName', u'5168AUTO'),
         StringStruct(u'LegalCopyright', u''),
-        StringStruct(u'OriginalFilename', u'5168AUTO.exe'),
+        StringStruct(u'OriginalFilename', u'{exe_filename}'),
         StringStruct(u'ProductName', u'5168AUTO'),
         StringStruct(u'ProductVersion', u'{vs_display}')])
       ]),
@@ -74,9 +76,11 @@ VSVersionInfo(
         f.write(content)
 
 
-_filevers, _vs_display = _read_app_version()
+_filevers, _vs_display, _app_version = _read_app_version()
+_exe_stem = f"5168AUTO_{_app_version}"
+_exe_filename = f"{_exe_stem}.exe"
 _version_info_path = os.path.join(_spec_dir, "build", "_file_version_info.txt")
-_write_win_version_info(_version_info_path, _filevers, _vs_display)
+_write_win_version_info(_version_info_path, _filevers, _vs_display, _exe_filename)
 
 _hidden = [
     "browser_actions",
@@ -119,7 +123,7 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 _exe_options = dict(
-    name="5168AUTO",
+    name=_exe_stem,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

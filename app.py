@@ -33,7 +33,7 @@ from session_guard import LoginResult, LoginStatus
 from workflow_worker import WorkflowThread, WorkflowWorker
 from inventory_workflow import WorkflowResult
 
-_APP_VERSION = "v0.2.15"
+_APP_VERSION = "v0.2.16"
 
 
 def _clamp_geometry(

@@ -8,7 +8,7 @@ echo [5168AUTO] 開始 PyInstaller 打包...
 python -m PyInstaller --noconfirm 5168AUTO.spec
 if errorlevel 1 goto :fail
 echo.
-echo 完成：dist\5168AUTO.exe
+echo 完成：dist\5168AUTO_v*.exe（檔名含 app.py 版號）
 exit /b 0
 :fail
 echo 打包失敗。

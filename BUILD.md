@@ -29,7 +29,7 @@ python -m PyInstaller --noconfirm 5168AUTO.spec
 
 | 路徑 | 說明 |
 |------|------|
-| `dist\5168AUTO.exe` | 可執行檔（檔名固定英文，供 Release 上傳） |
+| `dist\5168AUTO_v0.2.x.exe` | 可執行檔（檔名含版號，供 Release 上傳） |
 | `build\` | 暫存（可刪） |
 
 **已驗證**（2026-06-19）：PyInstaller 6.19 + Python 3.12，產物約 **242 MB**（單檔，含 PySide6 / selenium）。
@@ -56,12 +56,12 @@ python -m PyInstaller --noconfirm 5168AUTO.spec
 6. 小幫手會自動：
    - bump `app.py` 的 `_APP_VERSION`
    - 執行 `5168AUTO.spec`（或 `5168AUTO_full.spec`）
-   - 將 `dist\5168AUTO.exe` 壓成 **`5168AUTO.zip`** 上傳 Release
+   - 將 `dist\5168AUTO_v版號.exe` 壓成 **`5168AUTO_v版號.zip`** 上傳 Release
 
 ## 規範（docs前置準備）
 
 - Release 資產檔名：**英文** + **`.zip`**
-- zip 內放單一 **`5168AUTO.exe`**
+- zip 內放單一 **`5168AUTO_v版號.exe`**
 - 不直接上傳裸 `.exe` 到 Release 頁
 
 ## 首次執行注意
