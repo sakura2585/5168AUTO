@@ -18,7 +18,7 @@ from browser_actions import (
     visible_elements,
     wait_visible_xpath,
 )
-from popup_guard import dismiss_close_popup
+from popup_guard import dismiss_close_popup, dismiss_custom_xpaths
 
 LogFn = Callable[[str], None]
 
@@ -209,6 +209,7 @@ def run_inventory_workflow(
     step_pause_sec: float = 0.8,
     loop_steps_3_7: bool = True,
     max_loop_rounds: int = 0,
+    loop_popup_xpaths: list[str] | None = None,
     stop_check: Callable[[], bool] | None = None,
     log: LogFn | None = None,
 ) -> WorkflowResult:
@@ -218,6 +219,7 @@ def run_inventory_workflow(
     max_rounds = int(max_loop_rounds)
     if max_rounds < 0:
         max_rounds = 0
+    popup_xpaths = list(loop_popup_xpaths or [])
 
     try:
         driver.switch_to.default_content()
@@ -251,6 +253,8 @@ def run_inventory_workflow(
             _check_stop(stop_check, 3)
             round_no += 1
             _log(f"返回步驟 3，開始第 {round_no} 輪…")
+            if popup_xpaths:
+                dismiss_custom_xpaths(driver, popup_xpaths, log=_log)
             time.sleep(max(pause, 0.3))
 
         if loop_steps_3_7 and round_no > 1:

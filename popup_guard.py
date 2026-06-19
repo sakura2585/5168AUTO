@@ -79,6 +79,50 @@ def dismiss_close_popup(
     return False
 
 
+def dismiss_custom_xpaths(
+    driver: webdriver.Chrome,
+    xpaths: list[str],
+    *,
+    wait_sec: float = 3.0,
+    log: LogFn = _noop_log,
+) -> int:
+    """依 UI 設定的 XPath 嘗試關閉彈窗；回傳點擊次數。"""
+    cleaned = [x.strip() for x in xpaths if isinstance(x, str) and x.strip()]
+    if not cleaned:
+        log("（循環彈窗）未設定 XPath，略過。")
+        return 0
+
+    driver.switch_to.default_content()
+    clicks = 0
+    deadline = time.monotonic() + max(0.5, float(wait_sec))
+    while time.monotonic() < deadline:
+        found_any = False
+        for xpath in cleaned:
+            for el in driver.find_elements(By.XPATH, xpath):
+                try:
+                    if not el.is_displayed():
+                        continue
+                    _safe_click(driver, el)
+                    clicks += 1
+                    found_any = True
+                    log(f"（循環彈窗）已點擊：{xpath}")
+                    time.sleep(0.4)
+                    break
+                except WebDriverException:
+                    continue
+            if found_any:
+                break
+        if not found_any:
+            break
+        time.sleep(0.3)
+
+    if clicks == 0:
+        log("（循環彈窗）未偵測到可點擊元素。")
+    else:
+        log(f"（循環彈窗）共關閉 {clicks} 個。")
+    return clicks
+
+
 def navigate_and_dismiss(
     driver: webdriver.Chrome,
     url: str,

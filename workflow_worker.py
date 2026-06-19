@@ -57,6 +57,7 @@ class WorkflowWorker(QObject):
                 step_pause_sec=float(self._params.get("step_pause_sec", 0.8)),
                 loop_steps_3_7=bool(self._params.get("loop_steps_3_7", True)),
                 max_loop_rounds=int(self._params.get("max_loop_rounds", 0)),
+                loop_popup_xpaths=list(self._params.get("loop_popup_xpaths") or []),
                 stop_check=self._stopped,
                 log=self._log,
             )

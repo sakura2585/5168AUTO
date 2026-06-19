@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -32,7 +33,7 @@ from session_guard import LoginResult, LoginStatus
 from workflow_worker import WorkflowThread, WorkflowWorker
 from inventory_workflow import WorkflowResult
 
-_APP_VERSION = "v0.2.12"
+_APP_VERSION = "v0.2.13"
 
 
 def _clamp_geometry(
@@ -57,7 +58,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"5168AUTO v{_APP_VERSION}")
-        self.setMinimumSize(680, 620)
+        self.setMinimumSize(680, 700)
 
         self._state = load_state()
         self._creds = load_credentials()
@@ -143,6 +144,25 @@ class MainWindow(QMainWindow):
         self.max_loop_spin.setSpecialValueText("無限 / Until stop")
         self.max_loop_spin.setToolTip("0 表示無限循環，按「停止」結束。")
         wf_form.addRow("最大循環次數 / Max loops", self.max_loop_spin)
+
+        popup_row = QHBoxLayout()
+        self.popup_xpath_edit = QLineEdit()
+        self.popup_xpath_edit.setPlaceholderText(
+            "例如 /html/body/div[6]/div[2]/button[1]"
+        )
+        self.btn_popup_add = QPushButton("新增 / Add")
+        self.btn_popup_remove = QPushButton("刪除 / Remove")
+        popup_row.addWidget(self.popup_xpath_edit, stretch=1)
+        popup_row.addWidget(self.btn_popup_add)
+        popup_row.addWidget(self.btn_popup_remove)
+        wf_form.addRow("循環彈窗 XPath / Loop popup", popup_row)
+        self.popup_xpath_list = QListWidget()
+        self.popup_xpath_list.setMaximumHeight(72)
+        self.popup_xpath_list.setToolTip(
+            "僅在返回步驟 3 開始下一輪前，依序嘗試點擊這些 XPath。"
+        )
+        wf_form.addRow("", self.popup_xpath_list)
+
         outer.addWidget(workflow_box)
 
         # --- 固定頂部：操作按鈕 ---
@@ -180,6 +200,8 @@ class MainWindow(QMainWindow):
         self.btn_workflow.clicked.connect(self._on_run_workflow)
         self.btn_stop.clicked.connect(self._on_stop)
         self.btn_clear_profile.clicked.connect(self._on_clear_profile)
+        self.btn_popup_add.clicked.connect(self._on_popup_add)
+        self.btn_popup_remove.clicked.connect(self._on_popup_remove)
 
         self._login_worker.log_line.connect(self._append_log)
         self._login_worker.finished.connect(self._on_login_finished)
@@ -195,6 +217,7 @@ class MainWindow(QMainWindow):
         self.run_workflow_chk.setChecked(bool(self._state.get("run_workflow_after_login", True)))
         self.loop_3_7_chk.setChecked(bool(self._state.get("loop_steps_3_7", True)))
         self.max_loop_spin.setValue(float(self._state.get("max_loop_rounds", 0)))
+        self._load_popup_xpaths_from_state()
         phone = self._creds.get("phone", "")
         if phone:
             self.phone_edit.setText(str(phone))
@@ -211,7 +234,44 @@ class MainWindow(QMainWindow):
         self._state["run_workflow_after_login"] = bool(self.run_workflow_chk.isChecked())
         self._state["loop_steps_3_7"] = bool(self.loop_3_7_chk.isChecked())
         self._state["max_loop_rounds"] = int(self.max_loop_spin.value())
+        self._state["loop_popup_xpaths"] = self._popup_xpaths_from_list()
         self._state["chrome_profile_dir"] = str(CHROME_PROFILE_DIR)
+
+    def _popup_xpaths_from_list(self) -> list[str]:
+        out: list[str] = []
+        for i in range(self.popup_xpath_list.count()):
+            item = self.popup_xpath_list.item(i)
+            if item is None:
+                continue
+            text = item.text().strip()
+            if text:
+                out.append(text)
+        return out
+
+    def _load_popup_xpaths_from_state(self) -> None:
+        self.popup_xpath_list.clear()
+        raw = self._state.get("loop_popup_xpaths", [])
+        if not isinstance(raw, list):
+            return
+        for xp in raw:
+            if isinstance(xp, str) and xp.strip():
+                self.popup_xpath_list.addItem(xp.strip())
+
+    def _on_popup_add(self) -> None:
+        xp = self.popup_xpath_edit.text().strip()
+        if not xp:
+            return
+        self.popup_xpath_list.addItem(xp)
+        self.popup_xpath_edit.clear()
+        self._append_log(f"已新增循環彈窗 XPath：{xp}")
+
+    def _on_popup_remove(self) -> None:
+        row = self.popup_xpath_list.currentRow()
+        if row < 0:
+            return
+        item = self.popup_xpath_list.takeItem(row)
+        if item is not None:
+            self._append_log(f"已刪除循環彈窗 XPath：{item.text()}")
 
     def _restore_geometry(self) -> None:
         win = self._state.get("window", {})
@@ -271,6 +331,7 @@ class MainWindow(QMainWindow):
             "run_workflow_after_login": bool(self.run_workflow_chk.isChecked()),
             "loop_steps_3_7": bool(self.loop_3_7_chk.isChecked()),
             "max_loop_rounds": int(self.max_loop_spin.value()),
+            "loop_popup_xpaths": self._popup_xpaths_from_list(),
         }
 
     def _workflow_params(self) -> dict:

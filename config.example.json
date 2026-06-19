@@ -16,5 +16,8 @@
   "step_pause_sec": 0.8,
   "run_workflow_after_login": true,
   "loop_steps_3_7": true,
-  "max_loop_rounds": 0
+  "max_loop_rounds": 0,
+  "loop_popup_xpaths": [
+    "/html/body/div[6]/div[2]/button[1]"
+  ]
 }

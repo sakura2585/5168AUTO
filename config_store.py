@@ -24,6 +24,7 @@ _DEFAULT_STATE: dict[str, Any] = {
     "run_workflow_after_login": True,
     "loop_steps_3_7": True,
     "max_loop_rounds": 0,
+    "loop_popup_xpaths": [],
 }
 
 
