@@ -1,0 +1,20 @@
+# 建置與環境
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 本機狀態與秘密
+data/
+credentials.json
+
+# 探測腳本（開發用）
+_probe_*.py
+
+# 建置產物
+dist/
+build/
+
+# 編輯器
+.vscode/
+.idea/

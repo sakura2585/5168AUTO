@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "url": "https://007.houseprice.tw/",
+  "chrome_profile_dir": "data/chrome_profile",
+  "window": {
+    "width": 720,
+    "height": 560,
+    "x": null,
+    "y": null
+  },
+  "headless": false,
+  "login_wait_timeout_sec": 300,
+  "login_poll_interval_sec": 2.0,
+  "sms_wait_sec": 60,
+  "element_wait_sec": 15,
+  "step_pause_sec": 0.8,
+  "run_workflow_after_login": true,
+  "loop_steps_3_7": true,
+  "max_loop_rounds": 0
+}
