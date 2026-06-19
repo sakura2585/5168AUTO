@@ -32,7 +32,7 @@ from session_guard import LoginResult, LoginStatus
 from workflow_worker import WorkflowThread, WorkflowWorker
 from inventory_workflow import WorkflowResult
 
-_APP_VERSION = "v0.2.9"
+_APP_VERSION = "v0.2.10"
 
 
 def _clamp_geometry(
@@ -309,7 +309,10 @@ class MainWindow(QMainWindow):
 
     def _on_check_login(self) -> None:
         self._on_save()
-        self._append_log("檢查登入狀態…")
+        if self.run_workflow_chk.isChecked():
+            self._append_log("檢查登入狀態（已登入則自動執行步驟 1～7）…")
+        else:
+            self._append_log("檢查登入狀態…")
         self._start_worker("check")
 
     def _on_run_workflow(self) -> None:

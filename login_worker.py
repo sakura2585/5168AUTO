@@ -7,9 +7,9 @@ from typing import Any
 from PySide6.QtCore import QObject, QThread, Signal
 
 from browser_core import build_driver
-from browser_session import set_driver
+from browser_session import get_or_clear, set_driver
 from popup_guard import dismiss_close_popup, navigate_and_dismiss
-from session_guard import LoginResult, check_login_only, ensure_logged_in
+from session_guard import LoginResult, LoginStatus, check_login_only, ensure_logged_in
 from inventory_workflow import run_inventory_workflow
 
 
@@ -25,6 +25,7 @@ class LoginWorker(QObject):
 
     def configure(self, **params: Any) -> None:
         self._params = dict(params)
+        self._stop = False
 
     def request_stop(self) -> None:
         self._stop = True
@@ -37,11 +38,14 @@ class LoginWorker(QObject):
 
     def run_check(self) -> None:
         def _do(driver) -> LoginResult:
-            return check_login_only(
+            result = check_login_only(
                 driver,
                 home_url=str(self._params.get("home_url", "")),
                 log=self._log,
             )
+            if result.ok and result.status == LoginStatus.LOGGED_IN:
+                return self._maybe_run_workflow(driver, result)
+            return result
 
         result = self._with_driver(_do)
         self.finished.emit(result)
@@ -64,7 +68,11 @@ class LoginWorker(QObject):
         )
         if not result.ok:
             return result
+        return self._maybe_run_workflow(driver, result)
+
+    def _maybe_run_workflow(self, driver, result: LoginResult) -> LoginResult:
         if not bool(self._params.get("run_workflow_after_login", True)):
+            self._log("已登入；未勾選「登入後自動執行庫存流程」，略過步驟 1～7。")
             return result
         if self._stopped():
             return LoginResult(
@@ -105,12 +113,16 @@ class LoginWorker(QObject):
         profile = Path(str(self._params.get("chrome_profile_dir", "")))
         headless = bool(self._params.get("headless", False))
         home_url = str(self._params.get("home_url", ""))
-        driver = None
+        driver = get_or_clear()
         try:
-            self._log("啟動 Chrome（Selenium Manager 自動配對 ChromeDriver）…")
-            driver = build_driver(headless=headless, user_data_dir=profile, detach=True)
+            if driver is not None:
+                self._log("沿用已開啟的 Chrome…")
+                navigate_and_dismiss(driver, home_url, log=self._log)
+            else:
+                self._log("啟動 Chrome（Selenium Manager 自動配對 ChromeDriver）…")
+                driver = build_driver(headless=headless, user_data_dir=profile, detach=True)
+                navigate_and_dismiss(driver, home_url, log=self._log)
             self._driver = driver
-            navigate_and_dismiss(driver, home_url, log=self._log)
             return fn(driver)
         except Exception as exc:
             self._log(f"錯誤：{exc}")
