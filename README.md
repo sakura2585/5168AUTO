@@ -66,3 +66,15 @@ python app.py
 
 4. **日誌出現亂碼**  
    確認檔案為 UTF-8；終端機編碼設為 UTF-8。
+
+## 打包 EXE
+
+詳見 [BUILD.md](BUILD.md)。
+
+```powershell
+# 快速打包
+build_exe.bat
+# 產物：dist\5168AUTO.exe
+```
+
+上傳 Release 時請設 `GH_PUSH_EXE_ASSET_NAME=5168AUTO`，zip 內放 `5168AUTO.exe`。
