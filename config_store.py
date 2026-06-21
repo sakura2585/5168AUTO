@@ -25,6 +25,8 @@ _DEFAULT_STATE: dict[str, Any] = {
     "loop_steps_3_7": True,
     "max_loop_rounds": 0,
     "loop_popup_xpaths": [],
+    "max_recovery_per_round": 3,
+    "max_recovery_total": 30,
 }
 
 

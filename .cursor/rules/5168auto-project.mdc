@@ -1,0 +1,38 @@
+---
+description: 5168AUTO 專案維護與功能範圍（007.houseprice.tw 庫存自動化）
+globs:
+  - "**/*"
+alwaysApply: false
+---
+
+# 5168AUTO 專案提示
+
+## 定位
+
+5168（007.houseprice.tw）桌面自動化：PySide6 UI + Selenium Chrome + Chrome Profile 登入。
+
+## 核心模組
+
+| 檔案 | 職責 |
+|------|------|
+| `app.py` | 主視窗、設定、按鈕 |
+| `login_worker.py` | 登入背景執行；成功後可接續庫存流程 |
+| `workflow_worker.py` | 單獨執行庫存流程 |
+| `inventory_workflow.py` | 7 步 + 循環 3～7 |
+| `session_guard.py` | 手機簡訊登入偵測 |
+| `popup_guard.py` | 彈窗關閉；含 UI 自訂 XPath（循環回步驟 3 前） |
+| `browser_session.py` | 共用 Chrome，避免 Profile 衝突 |
+
+## 打包與發版
+
+- spec：`5168AUTO.spec`；小幫手別名 `order_note.spec`
+- exe 檔名：`5168AUTO_v{版號}.exe`（讀 `app.py` `_APP_VERSION`）
+- Release：`GH_PUSH_EXE_ASSET_NAME=5168AUTO`；zip 同名含版號
+- 說明：`BUILD.md`、使用者文件 `docs/使用者提示文.md`
+
+## 修改注意
+
+- UI 標籤：中文在前、英文在後
+- 設定持久化：`config_store.py` / `data/state.json`
+- 長任務不可阻塞 UI（QThread + Worker）
+- 勿提交 `data/credentials.json`、`data/chrome_profile/`

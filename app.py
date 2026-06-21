@@ -33,7 +33,7 @@ from session_guard import LoginResult, LoginStatus
 from workflow_worker import WorkflowThread, WorkflowWorker
 from inventory_workflow import WorkflowResult
 
-_APP_VERSION = "v0.2.17"
+_APP_VERSION = "v0.2.19"
 
 
 def _clamp_geometry(
@@ -332,6 +332,8 @@ class MainWindow(QMainWindow):
             "loop_steps_3_7": bool(self.loop_3_7_chk.isChecked()),
             "max_loop_rounds": int(self.max_loop_spin.value()),
             "loop_popup_xpaths": self._popup_xpaths_from_list(),
+            "max_recovery_per_round": int(self._state.get("max_recovery_per_round", 3)),
+            "max_recovery_total": int(self._state.get("max_recovery_total", 30)),
         }
 
     def _workflow_params(self) -> dict:

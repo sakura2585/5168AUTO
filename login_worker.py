@@ -90,6 +90,8 @@ class LoginWorker(QObject):
             loop_steps_3_7=bool(self._params.get("loop_steps_3_7", True)),
             max_loop_rounds=int(self._params.get("max_loop_rounds", 0)),
             loop_popup_xpaths=list(self._params.get("loop_popup_xpaths") or []),
+            max_recovery_per_round=int(self._params.get("max_recovery_per_round", 3)),
+            max_recovery_total=int(self._params.get("max_recovery_total", 30)),
             stop_check=self._stopped,
             log=self._log,
         )
