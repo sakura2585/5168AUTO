@@ -41,6 +41,12 @@ TEXT_COMPLETE = "\u5b8c\u6210"
 TEXT_BACK = "\u8fd4\u56de\u5eab\u5b58"
 TEXT_EDIT = "\u4fee\u6539"
 
+# 非庫存列表的庫存子頁（完成頁、編輯頁等）
+_INVENTORY_SUBPAGE_MARKERS = (
+    "inventory-edit",
+    "edit-finish",
+)
+
 
 class WorkflowStepError(Exception):
     """流程步驟失敗（含步驟編號，供恢復邏輯使用）。"""
@@ -74,6 +80,136 @@ def _wrap_step(step: int, fn: Callable[[], None]) -> None:
         raise
     except Exception as exc:
         raise WorkflowStepError(step, str(exc)) from exc
+
+
+def _current_url_lower(driver: webdriver.Chrome) -> str:
+    return (driver.current_url or "").lower()
+
+
+def _is_inventory_list_url(url: str) -> bool:
+    u = (url or "").lower()
+    if "/inventory/" not in u:
+        return False
+    return not any(marker in u for marker in _INVENTORY_SUBPAGE_MARKERS)
+
+
+def _has_pagination(driver: webdriver.Chrome) -> bool:
+    return bool(visible_elements(driver, XPATH_PAGINATION_UL))
+
+
+def _is_ready_for_step3(driver: webdriver.Chrome) -> bool:
+    return _is_inventory_list_url(_current_url_lower(driver)) and _has_pagination(driver)
+
+
+def _maybe_save_inventory_list_url(
+    driver: webdriver.Chrome,
+    inventory_list_url: list[str],
+    log: LogFn,
+) -> None:
+    url = (driver.current_url or "").strip()
+    if not _is_ready_for_step3(driver):
+        return
+    if inventory_list_url and inventory_list_url[0] == url:
+        return
+    inventory_list_url[:] = [url]
+    log(f"已記錄庫存列表網址：{url}")
+
+
+def _try_click_back_to_inventory(
+    driver: webdriver.Chrome,
+    *,
+    wait: float,
+    log: LogFn,
+) -> bool:
+    short_wait = min(max(wait, 3.0), 8.0)
+    try:
+        click_xpath(
+            driver,
+            XPATH_BACK_INVENTORY,
+            timeout_sec=short_wait,
+            log=log,
+            label=TEXT_BACK,
+        )
+        return True
+    except (TimeoutError, IndexError):
+        pass
+    try:
+        click_text(driver, TEXT_BACK, timeout_sec=short_wait, log=log)
+        return True
+    except (TimeoutError, IndexError):
+        pass
+    for xpath in (
+        f"//a[contains(normalize-space(.), '{TEXT_BACK}')]",
+        "//a[contains(@href,'/inventory/') and contains(normalize-space(.), '\u5eab\u5b58')]",
+    ):
+        els = visible_elements(driver, xpath)
+        if els:
+            safe_click(driver, els[0])
+            log(f"已點擊返回庫存連結。")
+            return True
+    return False
+
+
+def _navigate_to_inventory_list(
+    driver: webdriver.Chrome,
+    inventory_list_url: list[str],
+    *,
+    wait: float,
+    pause: float,
+    log: LogFn,
+) -> bool:
+    if inventory_list_url:
+        target = inventory_list_url[0]
+        log(f"導向已記錄的庫存列表：{target}")
+        driver.get(target)
+        ready_timeout = min(max(wait, 5.0), 30.0)
+        try:
+            wait_for_page_ready(driver, timeout_sec=ready_timeout)
+        except Exception:
+            pass
+        time.sleep(max(pause, 0.5))
+        dismiss_close_popup(driver, log=log)
+        if _is_ready_for_step3(driver):
+            return True
+    return False
+
+
+def _ensure_inventory_list(
+    driver: webdriver.Chrome,
+    inventory_list_url: list[str],
+    *,
+    wait: float,
+    pause: float,
+    log: LogFn,
+    label: str = "",
+) -> None:
+    prefix = f"{label} " if label else ""
+    if _is_ready_for_step3(driver):
+        _maybe_save_inventory_list_url(driver, inventory_list_url, log)
+        return
+
+    cur = driver.current_url or ""
+    log(f"{prefix}目前不在庫存列表：{cur}")
+
+    if _try_click_back_to_inventory(driver, wait=wait, log=log):
+        time.sleep(max(pause, 0.5))
+        dismiss_close_popup(driver, log=log)
+        if _is_ready_for_step3(driver):
+            _maybe_save_inventory_list_url(driver, inventory_list_url, log)
+            log(f"{prefix}已透過「返回庫存」回到列表。")
+            return
+
+    if _navigate_to_inventory_list(
+        driver, inventory_list_url, wait=wait, pause=pause, log=log
+    ):
+        _maybe_save_inventory_list_url(driver, inventory_list_url, log)
+        log(f"{prefix}已導向庫存列表。")
+        return
+
+    raise WorkflowStepError(
+        3,
+        f"無法回到庫存列表（目前：{cur}）",
+    )
 
 
 def _click_pagination_last(
@@ -131,6 +267,7 @@ def _run_steps_1_to_2(
     pause: float,
     stop_check: Callable[[], bool] | None,
     log: LogFn,
+    inventory_list_url: list[str],
 ) -> None:
     _check_stop(stop_check, 1)
     log("步驟 1：尋找選單…")
@@ -164,6 +301,7 @@ def _run_steps_1_to_2(
         dismiss_close_popup(driver, log=log)
 
     _wrap_step(2, _step2)
+    _maybe_save_inventory_list_url(driver, inventory_list_url, log)
 
 
 def _run_steps_3_to_7(
@@ -174,12 +312,22 @@ def _run_steps_3_to_7(
     stop_check: Callable[[], bool] | None,
     log: LogFn,
     round_no: int,
+    inventory_list_url: list[str],
 ) -> None:
     prefix = f"[第 {round_no} 輪] " if round_no > 1 else ""
 
     _check_stop(stop_check, 3)
+    _ensure_inventory_list(
+        driver,
+        inventory_list_url,
+        wait=wait,
+        pause=pause,
+        log=log,
+        label=f"{prefix}步驟 3 前",
+    )
     log(f"{prefix}步驟 3：點擊最後一頁…")
     _wrap_step(3, lambda: _click_pagination_last(driver, timeout_sec=wait, log=log))
+    _maybe_save_inventory_list_url(driver, inventory_list_url, log)
     if pause:
         time.sleep(pause)
 
@@ -240,16 +388,40 @@ def _run_steps_3_to_7(
     log(f"{prefix}步驟 7：點擊「返回庫存」…")
 
     def _step7() -> None:
-        current = (driver.current_url or "").lower()
-        if "inventory-edit" not in current:
-            log("已在庫存列表（非編輯頁），略過「返回庫存」。")
+        if _is_ready_for_step3(driver):
+            log("已在庫存列表，略過「返回庫存」。")
             return
-        try:
-            click_xpath(
-                driver, XPATH_BACK_INVENTORY, timeout_sec=wait, log=log, label=TEXT_BACK
+        current = _current_url_lower(driver)
+        if any(marker in current for marker in _INVENTORY_SUBPAGE_MARKERS):
+            log("目前在完成／編輯子頁，嘗試返回庫存…")
+        returned = _try_click_back_to_inventory(driver, wait=wait, log=log)
+        if not returned:
+            returned = _navigate_to_inventory_list(
+                driver,
+                inventory_list_url,
+                wait=wait,
+                pause=pause,
+                log=log,
             )
-        except (TimeoutError, IndexError):
-            click_text(driver, TEXT_BACK, timeout_sec=wait, log=log)
+        if not returned:
+            try:
+                click_xpath(
+                    driver,
+                    XPATH_BACK_INVENTORY,
+                    timeout_sec=wait,
+                    log=log,
+                    label=TEXT_BACK,
+                )
+            except (TimeoutError, IndexError):
+                click_text(driver, TEXT_BACK, timeout_sec=wait, log=log)
+        time.sleep(max(pause, 0.3))
+        dismiss_close_popup(driver, log=log)
+        if not _is_ready_for_step3(driver):
+            raise WorkflowStepError(
+                7,
+                f"點擊返回後仍不在庫存列表（{driver.current_url or ''}）",
+            )
+        _maybe_save_inventory_list_url(driver, inventory_list_url, log)
 
     _wrap_step(7, _step7)
     if pause:
@@ -260,6 +432,7 @@ def _run_steps_3_to_7(
 def _reset_to_anchor(
     driver: webdriver.Chrome,
     anchor_url: str,
+    inventory_list_url: list[str],
     *,
     wait: float,
     pause: float,
@@ -296,6 +469,10 @@ def _reset_to_anchor(
     dismiss_close_popup(driver, log=log)
     if popup_xpaths:
         dismiss_custom_xpaths(driver, popup_xpaths, log=log)
+    if inventory_list_url and not _is_ready_for_step3(driver):
+        _navigate_to_inventory_list(
+            driver, inventory_list_url, wait=wait, pause=pause, log=log
+        )
 
 
 def run_inventory_workflow(
@@ -324,6 +501,7 @@ def run_inventory_workflow(
     total_recoveries = 0
     round_recoveries = 0
     last_failed_step = 0
+    inventory_list_url: list[str] = []
 
     def _recover_from_error(*, failed_step: int, reason: str, round_no: int) -> None:
         nonlocal total_recoveries, round_recoveries, last_failed_step
@@ -353,6 +531,7 @@ def run_inventory_workflow(
         _reset_to_anchor(
             driver,
             anchor_url,
+            inventory_list_url,
             wait=wait,
             pause=pause,
             stop_check=stop_check,
@@ -364,7 +543,12 @@ def run_inventory_workflow(
         while True:
             try:
                 _run_steps_1_to_2(
-                    driver, wait=wait, pause=pause, stop_check=stop_check, log=_log
+                    driver,
+                    wait=wait,
+                    pause=pause,
+                    stop_check=stop_check,
+                    log=_log,
+                    inventory_list_url=inventory_list_url,
                 )
                 return
             except InterruptedError:
@@ -393,6 +577,7 @@ def run_inventory_workflow(
                     stop_check=stop_check,
                     log=_log,
                     round_no=round_no,
+                    inventory_list_url=inventory_list_url,
                 )
             except InterruptedError:
                 raise
@@ -426,6 +611,22 @@ def run_inventory_workflow(
             _check_stop(stop_check, 3)
             round_no += 1
             _log(f"返回步驟 3，開始第 {round_no} 輪…")
+            try:
+                _ensure_inventory_list(
+                    driver,
+                    inventory_list_url,
+                    wait=wait,
+                    pause=pause,
+                    log=_log,
+                    label=f"[第 {round_no} 輪]",
+                )
+            except WorkflowStepError as exc:
+                _recover_from_error(
+                    failed_step=exc.step, reason=str(exc), round_no=round_no
+                )
+                _log("[恢復] 重跑步驟 1～2…")
+                _run_steps_1_to_2_with_recovery()
+                continue
             if popup_xpaths:
                 dismiss_custom_xpaths(driver, popup_xpaths, log=_log)
             time.sleep(max(pause, 0.3))
