@@ -23,7 +23,6 @@ from session_guard import LoginStatus, detect_login_status, wait_for_page_ready
 
 LogFn = Callable[[str], None]
 
-_LOOP_INF_SAFETY_CAP = 5000
 _DEFAULT_MAX_RECOVERY_PER_ROUND = 3
 _DEFAULT_MAX_RECOVERY_TOTAL = 30
 
@@ -603,9 +602,6 @@ def run_inventory_workflow(
                 break
             if max_rounds > 0 and round_no >= max_rounds:
                 _log(f"已達最大循環次數 {max_rounds}，停止。")
-                break
-            if round_no >= _LOOP_INF_SAFETY_CAP:
-                _log(f"無限循環已達安全上限 {_LOOP_INF_SAFETY_CAP} 輪，停止。")
                 break
 
             _check_stop(stop_check, 3)
